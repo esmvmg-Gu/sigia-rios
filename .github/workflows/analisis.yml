@@ -1,0 +1,33 @@
+name: Análisis de umbrales
+
+on:
+  workflow_dispatch:
+    inputs:
+      estacion:
+        description: "Estación (id en config.R)"
+        required: true
+        default: "panajachel"
+      desde:
+        description: "Fecha de inicio del historial (AAAA-MM-DD)"
+        required: true
+        default: "2026-02-01"
+
+jobs:
+  analisis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      LANG: C.UTF-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+      - name: Analizar historial
+        run: Rscript analizar_umbrales.R ${{ github.event.inputs.estacion }} ${{ github.event.inputs.desde }}
+      - name: Publicar resultados
+        uses: actions/upload-artifact@v4
+        with:
+          name: analisis-${{ github.event.inputs.estacion }}
+          path: analisis/${{ github.event.inputs.estacion }}/
