@@ -1,0 +1,12 @@
+{
+  "nivel": 0,
+  "altura": null,
+  "hora": 0,
+  "pin": null,
+  "offline": false,
+  "caida_desde": null,
+  "aviso_offline": 0,
+  "aviso_camara": 0,
+  "aviso_picos": 0,
+  "aviso_lluvia": 0
+}
