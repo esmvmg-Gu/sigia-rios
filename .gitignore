@@ -1,0 +1,15 @@
+# Credenciales: NUNCA subir
+.Renviron
+.env
+
+# Archivos de R
+.Rhistory
+.RData
+.Rproj.user/
+
+# Imágenes y resultados generados en cada ejecución
+grafica_*.png
+tarjeta_*.png
+semanal_*.png
+!docs/*.png
+analisis/

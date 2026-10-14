@@ -1,0 +1,25 @@
+{
+  "_instrucciones": "Traducción de las alertas al kaqchikel. Debe hacerla y revisarla una persona hablante de la comunidad. Escriba cada mensaje en 'mensajes' usando el texto de 'referencia_es' como guía. Puede usar {rio}, {altura} (metros) y {mm} (lluvia) y el sistema pondrá los valores. Cuando todo esté revisado, cambie 'activo' a true. Los mensajes vacíos no se envían.",
+  "nombre": "Kaqchikel",
+  "activo": false,
+  "revisado_por": "",
+  "fecha_revision": "",
+
+  "mensajes": {
+    "subida": "",
+    "preventivo": "",
+    "alerta": "",
+    "peligro": "",
+    "lluvia": "",
+    "normal": ""
+  },
+
+  "referencia_es": {
+    "subida": "Aviso: el {rio} está subiendo. Ahora mide {altura} metros. No se acerque al río y esté atento a nuevos avisos.",
+    "preventivo": "Aviso preventivo: el {rio} está alto, mide {altura} metros. No se acerque al río y esté atento a nuevos avisos.",
+    "alerta": "Alerta: el {rio} llegó a {altura} metros. No se acerque ni cruce el río. Esté atento a nuevos avisos.",
+    "peligro": "Peligro: el {rio} llegó a {altura} metros. Aléjese del río. Si vive cerca, prepárese para salir y siga las indicaciones de las autoridades.",
+    "lluvia": "Aviso: está lloviendo fuerte en la parte alta ({mm} milímetros en una hora). El {rio} puede subir pronto. No cruce el río.",
+    "normal": "El {rio} regresó a su nivel normal. Seguimos vigilando."
+  }
+}

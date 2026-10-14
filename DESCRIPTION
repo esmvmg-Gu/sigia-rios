@@ -1,0 +1,12 @@
+Package: sigiarios
+Title: SIGIA Monitor de Rios para Telegram
+Version: 2.0.0
+Description: Lee la altura de los rios desde las estaciones SIGIA y envia
+    boletines, alertas y resumenes semanales a Telegram. Este archivo solo
+    sirve para que GitHub Actions instale y guarde en cache los paquetes.
+Imports:
+    httr,
+    jsonlite,
+    ggplot2,
+    png,
+    jpeg
