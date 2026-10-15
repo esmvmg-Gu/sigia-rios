@@ -2,15 +2,16 @@ name: Alertas de ríos
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # cada 10 minutos
+    - cron: "*/10 * * * *"   # cada 10 minutos (GitHub puede atrasarlo unos minutos)
   workflow_dispatch:
 
+# Evita que dos revisiones corran a la vez y choquen al guardar el estado
 concurrency:
   group: alertas-rios
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: write   # para guardar estado/ en el repositorio
 
 jobs:
   alerta:
@@ -22,6 +23,7 @@ jobs:
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
       WU_API_KEY: ${{ secrets.WU_API_KEY }}
+      GOOGLE_TTS_KEY: ${{ secrets.GOOGLE_TTS_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: r-lib/actions/setup-r@v2
