@@ -36,7 +36,9 @@ GENERAL <- list(
     google_voz       = "es-US-Chirp3-HD-Aoede",  # mujer. Otras: Kore, Leda, Despina (mujer) · Charon, Puck, Orus, Fenrir (hombre)
     google_velocidad = 0.95,                     # 1.0 = normal
     voz        = "es-GT-MartaNeural",            # respaldo (Microsoft). Hombre: "es-GT-AndresNeural"
-    velocidad  = "-5%"
+    velocidad  = "-5%",
+    horarios_boletin = c(6, 12, 18),  # para decir "el próximo boletín será a las…" (igual que boletin.yml)
+    permitir_voz_basica = FALSE       # FALSE = si fallan Google y Microsoft, NO se publica la voz robótica
   )
 )
 

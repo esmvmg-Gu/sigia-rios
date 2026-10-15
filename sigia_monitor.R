@@ -859,22 +859,24 @@ voz_metros <- function(a) {
 voz_hora <- function(t) {
   h <- as.integer(format(t, "%H", tz = TZ)); mi <- as.integer(format(t, "%M", tz = TZ))
   h12 <- if (h %% 12 == 0) 12 else h %% 12
-  paste0(if (h12 == 1) "la una" else paste("las", h12), if (mi > 0) paste(" con", mi) else "",
-         if (h < 12) " de la mañana" else if (h < 19) " de la tarde" else " de la noche")
+  paste0(if (h12 == 1) "la una" else paste("las", h12), if (mi > 0) paste(" y", mi) else "",
+         if (h < 12) " de la mañana" else if (h == 12) " del mediodía" else if (h < 19) " de la tarde" else " de la noche")
 }
+voz_saludo <- function(t) { h <- as.integer(format(t, "%H", tz = TZ))
+  if (h < 12) "Buenos días." else if (h < 19) "Buenas tardes." else "Buenas noches." }
 voz_fecha <- function(t) sprintf("%s %d de %s", tolower(DIAS[as.integer(format(t, "%w", tz = TZ)) + 1]),
                                  as.integer(format(t, "%d", tz = TZ)), MESES_LARGOS[as.integer(format(t, "%m", tz = TZ))])
 voz_minutos <- function(m) if (m < 60) paste(m, "minutos") else {
   h <- m %/% 60; r <- m %% 60
   paste0(h, if (h == 1) " hora" else " horas", if (r > 0) paste(" y", r, "minutos") else "")
 }
-voz_emergencias <- "En caso de emergencia llame a CONRED al uno, cinco, seis, seis, o a los Bomberos al uno, dos, dos."
+voz_emergencias <- "Si tiene una emergencia, llame a CONRED al uno, cinco, seis, seis. O a los Bomberos, al uno, dos, dos."
 
 voz_tendencia <- function(df, ult) {
   previas <- df[df$fecha <= ult$fecha - 3600, ]
   ref <- if (nrow(previas) > 0) previas[nrow(previas), ] else df[1, ]
   d <- ult$altura - ref$altura
-  if (abs(d) < 0.02) "y se mantiene estable"
+  if (abs(d) < 0.02) "y se mantiene estable, sin cambios"
   else if (d > 0) paste("y subió", voz_metros(d), "en la última hora")
   else paste("y bajó", voz_metros(d), "en la última hora")
 }
@@ -883,32 +885,98 @@ voz_proyeccion <- function(p) {
   sprintf("Si sigue subiendo a este ritmo, podría llegar al nivel de %s en aproximadamente %s.", p$umbral, voz_minutos(p$minutos))
 }
 
+# Cambio en un periodo, en palabras ("subió 12 centímetros", "se mantuvo igual")
+voz_cambio <- function(d, verbo_igual = "se mantuvo prácticamente igual") {
+  if (is.na(d) || abs(d) < 0.02) verbo_igual
+  else paste(if (d > 0) "subió" else "bajó", voz_metros(d))
+}
+# Altura más cercana a un momento dado (máximo 40 min de diferencia)
+altura_en <- function(df, t) {
+  dif <- abs(as.numeric(difftime(df$fecha, t, units = "mins")))
+  if (min(dif) > 40) NA else df$altura[which.min(dif)]
+}
+voz_tendencia <- function(df, ult) {
+  previas <- df[df$fecha <= ult$fecha - 3600, ]
+  ref <- if (nrow(previas) > 0) previas[nrow(previas), ] else df[1, ]
+  d <- ult$altura - ref$altura
+  if (abs(d) < 0.02) "y se mantiene estable, sin cambios"
+  else if (d >= 0.20) paste("y está subiendo rápido. En la última hora subió", voz_metros(d))
+  else if (d > 0) paste("y está subiendo poco a poco. En la última hora subió", voz_metros(d))
+  else paste("y está bajando. En la última hora bajó", voz_metros(d))
+}
+# Hora del siguiente boletín, según GENERAL$voz$horarios_boletin
+voz_proximo_boletin <- function(despedida = TRUE) {
+  hs <- sort(GENERAL$voz$horarios_boletin %||% c(6, 12, 18))
+  h  <- as.integer(format(Sys.time(), "%H", tz = TZ))
+  sig <- hs[hs > h]
+  hora <- function(x) if (x == 12) "a las 12 del mediodía" else if (x < 12) sprintf("a las %d de la mañana", x)
+                      else if (x < 19) sprintf("a las %d de la tarde", x - 12) else sprintf("a las %d de la noche", x - 12)
+  adios <- if (!despedida) "" else if (h < 12) " Que tenga buen día." else if (h < 19) " Que tenga buena tarde." else " Que pase buena noche."
+  if (length(sig)) paste0("Le daremos el próximo informe ", hora(sig[1]), ".", adios)
+  else paste0("Le daremos el próximo informe mañana ", hora(hs[1]), ".", adios)
+}
+
 texto_voz_boletin <- function(est, df, lluvia) {
   ahora <- Sys.time()
-  cab <- sprintf("Boletín del %s. %s, %s.", est$rio, mayus1(voz_fecha(ahora)), voz_hora(ahora))
+  cab <- sprintf("%s Le compartimos cómo está el %s este %s, a %s.", voz_saludo(ahora), est$rio, voz_fecha(ahora), voz_hora(ahora))
   r <- resumen(df, est)
-  if (is.null(r)) return(paste(cab, "En este momento no fue posible consultar la estación de monitoreo."))
-  if (r$offline) return(paste(cab, sprintf("La estación de monitoreo no envía datos desde el %s, a %s. La última altura registrada fue de %s.",
+  if (is.null(r)) return(paste(cab, "En este momento no fue posible consultar la estación de monitoreo. Intentaremos de nuevo en el próximo boletín."))
+  if (r$offline) return(paste(cab, sprintf("La estación de monitoreo no envía datos desde el %s, a %s. La última altura registrada fue de %s. Mientras la estación esté sin conexión, tome precauciones si llueve fuerte.",
                                            voz_fecha(r$ult$fecha), voz_hora(r$ult$fecha), voz_metros(r$ult$altura))))
+  a <- r$ult$altura; t <- r$ult$fecha
   nivel <- c("normal", "preventivo", "de alerta", "de peligro")[r$n + 1]
-  a <- r$ult$altura
-  falta  <- function(x) { v <- voz_metros(x); paste(if (grepl("^1 (metro|centímetro)($| )", v)) "Falta" else "Faltan", v) }
-  margen <- if (a < est$umbral_alerta) paste(falta(est$umbral_alerta - a), "para el nivel de alerta.")
-            else if (a < est$umbral_peligro) paste(falta(est$umbral_peligro - a), "para el nivel de peligro.")
-            else "El río está por encima del nivel de peligro."
-  partes <- c(cab,
-              sprintf("El río está en nivel %s, con una altura de %s, %s.", nivel, voz_metros(a), voz_tendencia(df, r$ult)),
-              voz_proyeccion(r$proy), margen)
-  if (!is.null(lluvia) && lluvia$mm_1h[1] >= 1)
-    partes <- c(partes, sprintf("En la parte alta de la cuenca llovió %s milímetros en la última hora.", round(lluvia$mm_1h[1])))
-  if (r$n >= 2) partes <- c(partes, "Evite acercarse o cruzar el río.", voz_emergencias)
-  paste(c(partes, "Información de SIGIA."), collapse = " ")
+  partes <- c(cab, sprintf("En este momento el río está en nivel %s. Mide %s, %s.", nivel, voz_metros(a), voz_tendencia(df, r$ult)))
+
+  a1 <- altura_en(df, t - 3600); sube_1h <- !is.na(a1) && (a - a1) >= 0.10
+  a6 <- altura_en(df, t - 6 * 3600); a24 <- altura_en(df, t - 24 * 3600)
+  urgente <- r$n >= 2                      # en alerta o peligro el audio va directo a lo importante
+
+  # Desde el boletín anterior (6 horas) y comparación con ayer a la misma hora
+  if (!is.na(a6) && abs(a - a6) >= 0.05) partes <- c(partes, paste0("En las últimas seis horas el río ", voz_cambio(a - a6), "."))
+  if (!urgente && !is.na(a24)) partes <- c(partes, if (abs(a - a24) < 0.03) "Está más o menos igual que ayer a esta hora."
+                               else sprintf("Comparado con ayer a esta hora, está %s más %s.", voz_metros(a - a24), if (a > a24) "alto" else "bajo"))
+
+  # Resumen de 24 horas
+  d <- r$d24
+  if (!urgente && nrow(d) >= 6) {
+    rango <- diff(range(d$altura))
+    a_las <- function(x) sub("^las", "a las", sub("^la una", "a la una", voz_hora(x)))
+    partes <- c(partes,
+      if (rango < 0.10) sprintf("Durante el último día, el río estuvo tranquilo, entre %s y %s.", sub(" centímetros?$", "", voz_metros(min(d$altura))), voz_metros(max(d$altura)))
+      else if (r$imax == nrow(d) || as.numeric(difftime(t, d$fecha[r$imax], units = "mins")) < 30)
+        sprintf("Es el nivel más alto del último día. El más bajo fue de %s.", voz_metros(d$altura[r$imin]))
+      else sprintf("Durante el último día, lo más alto que llegó fue %s, %s. Y lo más bajo, %s.",
+                   voz_metros(d$altura[r$imax]), a_las(d$fecha[r$imax]), voz_metros(d$altura[r$imin])))
+  }
+
+  # Margen y proyección
+  falta <- function(x) { v <- voz_metros(x); paste(if (grepl("^1 (metro|centímetro)($| )", v)) "Falta" else "Faltan", v) }
+  partes <- c(partes, voz_proyeccion(r$proy),
+              if (a < est$umbral_alerta) paste("Todavía", tolower(falta(est$umbral_alerta - a)), "para llegar al nivel de alerta.")
+              else if (a < est$umbral_peligro) paste(falta(est$umbral_peligro - a), "para llegar al nivel de peligro.")
+              else "El río está por encima del nivel de peligro.")
+
+  # Lluvia en la cuenca alta (si hay estaciones configuradas)
+  if (!is.null(lluvia)) partes <- c(partes,
+    if (lluvia$mm_1h[1] >= 1) sprintf("En la parte alta de la cuenca está lloviendo: %s milímetros en la última hora y %s en lo que va del día.",
+                                      round(lluvia$mm_1h[1]), round(lluvia$mm_hoy[1]))
+    else if (lluvia$mm_hoy[1] >= 1) sprintf("En la parte alta de la cuenca han caído %s milímetros de lluvia hoy, pero no llueve en este momento.", round(lluvia$mm_hoy[1]))
+    else "No se registra lluvia en la parte alta de la cuenca.")
+
+  # Recomendación según el nivel
+  partes <- c(partes, switch(as.character(r$n),
+    "0" = if (r$s$subida >= est$subida_minima || sube_1h) "Como el río está subiendo, le pedimos estar atento a los próximos avisos y no cruzar el cauce."
+          else "Por ahora no hay peligro. Pero recuerde: si llueve fuerte, mejor no cruce el río.",
+    "1" = "Le pedimos estar atento, evitar cruzar el río y seguir los próximos avisos.",
+    "2" = c("No se acerque ni cruce el río.", voz_emergencias),
+    "3" = c("Aléjese del cauce del río y siga las indicaciones de las autoridades.", voz_emergencias)))
+  paste(c(partes, voz_proximo_boletin(despedida = !urgente)), collapse = " ")
 }
 
 texto_voz_alerta <- function(est, ult, s, motivo, n, proy, lluvia) {
   ahora <- Sys.time()
   if (motivo == "normal")
-    return(sprintf("Aviso del %s, %s. El río regresó a su nivel normal. Ahora tiene una altura de %s. Seguimos vigilando. Información de SIGIA.",
+    return(sprintf("Aviso del %s, %s. El río regresó a su nivel normal. Ahora tiene una altura de %s. Seguimos vigilando el río.",
                    est$rio, voz_hora(ahora), voz_metros(ult$altura)))
   titulo <- switch(motivo,
     nivel  = c("", "Aviso preventivo", "Alerta naranja", "Alerta roja. Peligro")[n + 1],
@@ -925,25 +993,10 @@ texto_voz_alerta <- function(est, ult, s, motivo, n, proy, lluvia) {
                      "3" = "Aléjese del cauce del río. Si vive cerca, prepárese para salir y siga las indicaciones de las autoridades.",
                      "2" = "No se acerque ni cruce el río. Esté atento a nuevos avisos.",
                      "No se acerque al cauce del río y esté atento a nuevos avisos."),
-              voz_emergencias, "Información de SIGIA.")
+              voz_emergencias, "Le avisaremos si la situación cambia.")
   paste(partes, collapse = " ")
 }
 mayus1 <- function(s) paste0(toupper(substr(s, 1, 1)), substr(s, 2, nchar(s)))
-
-# Instala un motor de voz si falta (solo en GitHub/Linux; en Windows se omite)
-asegurar_motor <- function() {
-  if (.Platform$OS.type != "unix") return(invisible())
-  tiene_edge <- system2("python3", c("-c", shQuote("import edge_tts")), stdout = FALSE, stderr = FALSE) == 0
-  if (!tiene_edge) {
-    log_message("Instalando edge-tts…")
-    system2("python3", c("-m", "pip", "install", "--quiet", "--user", "--break-system-packages", "edge-tts"),
-            stdout = FALSE, stderr = FALSE)
-  }
-  if (!nzchar(Sys.which("ffmpeg")) || !nzchar(Sys.which("espeak-ng"))) {
-    log_message("Instalando ffmpeg / espeak-ng…")
-    system("sudo -n apt-get install -y -qq ffmpeg espeak-ng > /dev/null 2>&1 || (sudo -n apt-get update -qq > /dev/null 2>&1 && sudo -n apt-get install -y -qq ffmpeg espeak-ng > /dev/null 2>&1)")
-  }
-}
 
 # Google Cloud Text-to-Speech · Chirp 3 HD (devuelve OGG/Opus listo para nota de voz)
 voz_google <- function(texto, ogg) {
@@ -963,45 +1016,76 @@ voz_google <- function(texto, ogg) {
     log_message(sprintf("Google TTS falló (HTTP %d): %s", status_code(res), j$error$message %||% ""))
     return(NULL)
   }
-  b64 <- j$audioContent
-  if (is.null(b64)) return(NULL)
-  writeBin(jsonlite::base64_dec(b64), ogg)
+  if (is.null(j$audioContent)) return(NULL)
+  writeBin(jsonlite::base64_dec(j$audioContent), ogg)
   if (file.exists(ogg) && file.size(ogg) > 1000) ogg else NULL
 }
 
-# Genera el audio y devuelve la ruta (.ogg para nota de voz, o .mp3/.wav como respaldo)
-# Orden: Google Chirp 3 HD → Microsoft es-GT (edge-tts) → espeak-ng
+# Instala lo necesario para la voz (solo en GitHub/Linux)
+asegurar_motor <- function() {
+  if (.Platform$OS.type != "unix") return(invisible())
+  if (system2("python3", c("-c", shQuote("import edge_tts")), stdout = FALSE, stderr = FALSE) != 0) {
+    log_message("Instalando edge-tts…")
+    out <- system2("python3", c("-m", "pip", "install", "--quiet", "--user", "--upgrade", "--break-system-packages", "edge-tts"),
+                   stdout = TRUE, stderr = TRUE)
+    if (!is.null(attr(out, "status"))) log_message(paste("pip:", paste(tail(out, 3), collapse = " | ")))
+  }
+  if (!nzchar(Sys.which("ffmpeg"))) {
+    log_message("Instalando ffmpeg…")
+    system("sudo -n apt-get install -y -qq ffmpeg > /dev/null 2>&1 || (sudo -n apt-get update -qq > /dev/null 2>&1 && sudo -n apt-get install -y -qq ffmpeg > /dev/null 2>&1)")
+  }
+}
+
+# Voz neuronal de Microsoft (edge-tts) usando la librería directamente, con 2 intentos
+voz_microsoft <- function(txt, mp3) {
+  cfg <- GENERAL$voz
+  py <- file.path(tempdir(), "voz_edge.py")
+  writeLines(c("import asyncio, sys, edge_tts",
+               "texto = open(sys.argv[1], encoding='utf-8').read()",
+               "asyncio.run(edge_tts.Communicate(texto, sys.argv[3], rate=sys.argv[4]).save(sys.argv[2]))"), py)
+  for (i in 1:2) {
+    unlink(mp3)
+    out <- system2("python3", c(shQuote(py), shQuote(txt), shQuote(mp3), cfg$voz %||% "es-GT-MartaNeural",
+                                shQuote(cfg$velocidad %||% "+0%")), stdout = TRUE, stderr = TRUE)
+    if (file.exists(mp3) && file.size(mp3) > 2000) return(mp3)
+    log_message(paste0("Voz Microsoft falló (intento ", i, "): ", paste(tail(out, 2), collapse = " | ")))
+    Sys.sleep(3)
+  }
+  NULL
+}
+
+# Genera el audio y devuelve la ruta (.ogg para nota de voz)
+# Orden: Google Chirp 3 HD → Microsoft es-GT → (voz básica solo si se permite en config.R)
 generar_voz <- function(texto, nombre) {
   cfg <- GENERAL$voz
   dir <- tempdir()
   if (nzchar(GOOGLE_TTS_KEY)) {
     r <- voz_google(texto, file.path(dir, paste0(nombre, "_google.ogg")))
     if (!is.null(r)) { log_message("Voz generada con Google Chirp 3 HD"); return(r) }
-    log_message("Google TTS no disponible: probando voz de respaldo")
+    log_message("Google TTS no disponible: probando voz de Microsoft")
   }
   txt <- file.path(dir, paste0(nombre, ".txt")); writeLines(enc2utf8(texto), txt, useBytes = TRUE)
-  mp3 <- file.path(dir, paste0(nombre, ".mp3")); wav <- file.path(dir, paste0(nombre, ".wav"))
-  ogg <- file.path(dir, paste0(nombre, ".ogg"))
-  unlink(c(mp3, wav, ogg))
+  mp3 <- file.path(dir, paste0(nombre, ".mp3")); ogg <- file.path(dir, paste0(nombre, ".ogg"))
+  unlink(c(mp3, ogg))
   asegurar_motor()
 
-  fuente <- NULL
-  st <- tryCatch(system2("python3", c("-m", "edge_tts", "--voice", cfg$voz %||% "es-GT-MartaNeural",
-                                      paste0("--rate=", cfg$velocidad %||% "+0%"), "-f", shQuote(txt),
-                                      "--write-media", shQuote(mp3)), stdout = FALSE, stderr = FALSE),
-                 error = function(e) 1)
-  if (st == 0 && file.exists(mp3) && file.size(mp3) > 2000) fuente <- mp3
-  if (is.null(fuente) && nzchar(Sys.which("espeak-ng"))) {
-    log_message("edge-tts no disponible: usando voz de respaldo (espeak-ng)")
-    st <- system2("espeak-ng", c("-v", "es-419", "-s", "145", "-f", shQuote(txt), "-w", shQuote(wav)), stdout = FALSE, stderr = FALSE)
-    if (st == 0 && file.exists(wav)) fuente <- wav
+  fuente <- voz_microsoft(txt, mp3)
+  if (!is.null(fuente)) log_message(paste("Voz generada con Microsoft", cfg$voz))
+  if (is.null(fuente) && isTRUE(cfg$permitir_voz_basica)) {
+    if (!nzchar(Sys.which("espeak-ng"))) system("sudo -n apt-get install -y -qq espeak-ng > /dev/null 2>&1")
+    wav <- file.path(dir, paste0(nombre, ".wav"))
+    if (system2("espeak-ng", c("-v", "es-419", "-s", "145", "-f", shQuote(txt), "-w", shQuote(wav)), stdout = FALSE, stderr = FALSE) == 0 &&
+        file.exists(wav)) { fuente <- wav; log_message("Voz generada con la voz básica (espeak-ng)") }
   }
-  if (is.null(fuente)) { log_message("No se pudo generar la voz"); return(NULL) }
-  if (nzchar(Sys.which("ffmpeg"))) {
-    st <- system2("ffmpeg", c("-y", "-loglevel", "error", "-i", shQuote(fuente), "-c:a", "libopus",
-                              "-b:a", "32k", "-ac", "1", shQuote(ogg)), stdout = FALSE, stderr = FALSE)
-    if (st == 0 && file.exists(ogg) && file.size(ogg) > 1000) return(ogg)
+  if (is.null(fuente)) {
+    log_message("No se generó audio: ninguna voz natural disponible (se omite la nota de voz)")
+    admin("🔇 <b>No se pudo generar la nota de voz</b> (voces de Google y Microsoft no disponibles). El mensaje escrito sí se publicó. Revise el registro en GitHub → Actions.")
+    return(NULL)
   }
+  if (nzchar(Sys.which("ffmpeg")) &&
+      system2("ffmpeg", c("-y", "-loglevel", "error", "-i", shQuote(fuente), "-c:a", "libopus", "-b:a", "48k",
+                          "-ac", "1", "-ar", "48000", shQuote(ogg)), stdout = FALSE, stderr = FALSE) == 0 &&
+      file.exists(ogg) && file.size(ogg) > 1000) return(ogg)
   fuente
 }
 
