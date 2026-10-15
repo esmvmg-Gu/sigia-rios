@@ -17,6 +17,7 @@ Lee la altura del río de las estaciones de [SIGIA](https://www.sigiagt.com/inde
 | **Resumen semanal** | Lunes 07:05 · sin sonido | Canal |
 | **Avisos técnicos** | Estación caída o de regreso, cámara sin fotos, sensor con lecturas falsas | Chat privado del equipo |
 | **Copia para WhatsApp** | Con cada alerta | Chat privado del equipo |
+| **Nota de voz** | Con cada boletín y alerta: una voz de Guatemala lee el nivel, la tendencia y qué hacer | Canal |
 
 ### Alertas
 
@@ -54,6 +55,7 @@ En **Settings → Secrets and variables → Actions → New repository secret**:
 | `ADMIN_CHAT_ID` | **recomendado** | Chat privado del equipo técnico. Para saber el número, escríbale a **@userinfobot**. Para un grupo, agregue el bot al grupo. |
 | `TELEGRAM_CHAT_ID` | opcional | Canal público. Si falta, se usa el de `config.R`. |
 | `WU_API_KEY` | opcional | Llave de Wunderground, para la lluvia de la cuenca |
+| `GOOGLE_TTS_KEY` | recomendado | Llave de Google Text-to-Speech para la voz más natural (Chirp 3 HD). Gratis para este uso. Sin ella se usa la voz de Microsoft. |
 
 ### 3. Permisos del bot
 El bot debe ser **administrador del canal**, con permiso para **publicar** y **fijar mensajes**.
@@ -73,6 +75,7 @@ Todo se ajusta en **`config.R`**: umbrales, tiempos, estaciones de lluvia, núme
 | `salto_max` | 0.50 m | Salto entre lecturas que, si no se repite, es lectura falsa |
 | `lluvia` | vacío | Estaciones Wunderground de la parte alta de la cuenca |
 | `bot_usuario` | vacío | Usuario del bot, para mostrar el botón "Consultar nivel al bot" |
+| `voz` | Google `es-US-Chirp3-HD-Aoede` (respaldo: `es-GT-MartaNeural`) | Nota de voz automática: activar/desactivar, elegir voz y velocidad |
 
 **Agregar Camotán:** en `config.R` está preparada pero desactivada. Hay que confirmar los nombres de sus archivos de datos y sus umbrales (ver instrucciones en el archivo) y cambiar `activa = TRUE`.
 

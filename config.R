@@ -7,6 +7,7 @@
 #   TELEGRAM_CHAT_ID  opcional    · canal público (si falta, usa canal_por_defecto)
 #   ADMIN_CHAT_ID     recomendado · chat privado del equipo técnico
 #   WU_API_KEY        opcional    · llave de Wunderground para la lluvia
+#   GOOGLE_TTS_KEY    opcional    · llave de Google Text-to-Speech (voz más natural)
 # ============================================================
 
 GENERAL <- list(
@@ -24,7 +25,19 @@ GENERAL <- list(
   whatsapp_al_equipo    = TRUE,# enviar al equipo una copia de cada alerta lista para WhatsApp
 
   # Idiomas adicionales en las alertas (archivos en textos/<idioma>.json)
-  idiomas = c("kaqchikel")
+  idiomas = c("kaqchikel"),
+
+  # Nota de voz automática que lee el boletín y las alertas
+  # Motor principal: Google Chirp 3 HD (la más natural; requiere el secreto GOOGLE_TTS_KEY).
+  # Si no hay llave o falla, usa la voz de Guatemala de Microsoft, y luego una voz básica.
+  voz = list(
+    en_boletin = TRUE,
+    en_alertas = TRUE,
+    google_voz       = "es-US-Chirp3-HD-Aoede",  # mujer. Otras: Kore, Leda, Despina (mujer) · Charon, Puck, Orus, Fenrir (hombre)
+    google_velocidad = 0.95,                     # 1.0 = normal
+    voz        = "es-GT-MartaNeural",            # respaldo (Microsoft). Hombre: "es-GT-AndresNeural"
+    velocidad  = "-5%"
+  )
 )
 
 # Valores que usan todas las estaciones (cada estación puede cambiarlos abajo)
