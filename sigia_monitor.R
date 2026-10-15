@@ -925,7 +925,7 @@ texto_voz_boletin <- function(est, df, lluvia) {
                                            voz_fecha(r$ult$fecha), voz_hora(r$ult$fecha), voz_metros(r$ult$altura))))
   a <- r$ult$altura; t <- r$ult$fecha
   nivel <- c("normal", "preventivo", "de alerta", "de peligro")[r$n + 1]
-  partes <- c(cab, sprintf("En este momento el río está en nivel %s. Mide %s, %s.", nivel, voz_metros(a), voz_tendencia(df, r$ult)))
+  partes <- c(cab, sprintf("En este momento, el río tiene una altura de %s. Está en nivel %s %s.", voz_metros(a), nivel, voz_tendencia(df, r$ult)))
 
   a1 <- altura_en(df, t - 3600); sube_1h <- !is.na(a1) && (a - a1) >= 0.10
   a6 <- altura_en(df, t - 6 * 3600); a24 <- altura_en(df, t - 24 * 3600)
