@@ -3,9 +3,9 @@
   "altura": null,
   "hora": 0,
   "pin": null,
-  "offline": false,
-  "caida_desde": null,
-  "aviso_offline": 0,
+  "offline": true,
+  "caida_desde": 1794418524.53397,
+  "aviso_offline": 1794418525.09742,
   "aviso_camara": 0,
   "aviso_picos": 0,
   "aviso_lluvia": 0
